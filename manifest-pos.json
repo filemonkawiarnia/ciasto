@@ -2,7 +2,7 @@
   "name": "Filemon POS — Kocia Kawiarnia",
   "short_name": "Filemon POS",
   "description": "System kasowy — Filemon Kocia Kawiarnia",
-  "start_url": "./pos.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "orientation": "landscape",
   "background_color": "#FFF5FA",
