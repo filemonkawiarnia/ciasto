@@ -2,7 +2,7 @@
   "name": "Filemon — Zamówienia Ciast",
   "short_name": "Filemon",
   "description": "Panel przyjmowania zamówień — Filemon Kocia Kawiarnia",
-  "start_url": "./ciasto.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#FFF5FA",
