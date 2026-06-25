@@ -1,0 +1,1688 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Filemon POS — Kocia Kawiarnia</title>
+<meta name="theme-color" content="#E8387A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Filemon POS">
+<link rel="manifest" href="manifest-pos.json">
+<link rel="apple-touch-icon" href="icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --fuchsia:      #E8387A;
+  --fuchsia-dark: #C4205E;
+  --fuchsia-pale: #FCE8F1;
+  --fuchsia-ultra:#FDF3F8;
+  --navy:         #2C3E6A;
+  --navy-dark:    #1E2E52;
+  --yellow:       #F5C842;
+  --green:        #1E7A4F;
+  --green-pale:   #E8F5EE;
+  --red:          #C0392B;
+  --red-pale:     #FDECEA;
+  --white:        #FFFFFF;
+  --bg:           #FFF5FA;
+  --text:         #1B1030;
+  --text-mid:     #5A3A55;
+  --text-light:   #9A7A92;
+  --border:       rgba(232,56,122,0.18);
+  --border-navy:  rgba(44,62,106,0.15);
+  --radius:       12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);}
+
+/* ══ PIN SCREEN ══ */
+#pin-screen{
+  position:fixed;inset:0;background:var(--bg);z-index:9999;
+  display:flex;align-items:center;justify-content:center;padding:1.5rem;
+  transition:opacity .35s ease;
+}
+#pin-screen.fade-out{opacity:0;pointer-events:none;}
+.pin-card{background:var(--white);border:1.5px solid var(--border);border-radius:22px;overflow:hidden;box-shadow:0 12px 40px rgba(232,56,122,0.14);width:100%;max-width:320px;}
+.pin-card-top{background:var(--fuchsia);padding:1.4rem 1.8rem 1.2rem;text-align:center;position:relative;overflow:hidden;}
+.pin-card-top::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.07) 1px,transparent 1px);background-size:22px 22px;pointer-events:none;}
+.pin-eyebrow{font-size:0.65rem;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.75);margin-bottom:0.3rem;position:relative;}
+.pin-card-top h2{font-family:'DM Serif Display',serif;font-size:1.6rem;color:#fff;position:relative;}
+.pin-body{padding:1.4rem 1.6rem 1.6rem;}
+.pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:1.2rem;}
+.pin-dot{width:13px;height:13px;border-radius:50%;border:2px solid var(--border-navy);background:transparent;transition:all .15s;}
+.pin-dot.filled{background:var(--fuchsia);border-color:var(--fuchsia);box-shadow:0 0 0 3px rgba(232,56,122,0.18);}
+.pin-dot.error{background:var(--red);border-color:var(--red);}
+.pin-numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:0.7rem;}
+.pin-key{background:var(--bg);border:1.5px solid var(--border-navy);border-radius:10px;color:var(--text);font-family:'Nunito',sans-serif;font-size:1.25rem;font-weight:800;padding:13px 0;cursor:pointer;text-align:center;transition:background .12s,border-color .12s,transform .08s;user-select:none;-webkit-tap-highlight-color:transparent;}
+.pin-key:hover{background:var(--fuchsia-pale);border-color:var(--fuchsia);}
+.pin-key:active{transform:scale(.92);}
+.pin-key.key-del{font-size:0.72rem;font-weight:800;color:var(--text-light);}
+.pin-key.key-zero{grid-column:2;}
+.pin-key.key-ok{grid-column:3;background:var(--fuchsia);border-color:var(--fuchsia);color:#fff;font-size:0.78rem;letter-spacing:0.05em;}
+.pin-key.key-ok:hover{background:var(--fuchsia-dark);}
+.pin-status{text-align:center;font-size:0.72rem;font-weight:800;color:var(--red);letter-spacing:0.06em;text-transform:uppercase;height:14px;opacity:0;transition:opacity .2s;}
+.pin-status.show{opacity:1;}
+@keyframes pin-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.pin-card.shake{animation:pin-shake .35s ease;}
+
+/* ══ LAYOUT ══ */
+#app{display:none;height:100vh;flex-direction:column;}
+#app.visible{display:flex;}
+
+/* HEADER */
+.pos-header{
+  background:var(--fuchsia);padding:0.55rem 1rem;
+  display:flex;align-items:center;gap:0.8rem;flex-shrink:0;
+  position:relative;overflow:hidden;
+}
+.pos-header::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.07) 1px,transparent 1px);background-size:20px 20px;pointer-events:none;}
+.pos-logo{font-family:'DM Serif Display',serif;font-size:1.2rem;color:#fff;position:relative;white-space:nowrap;}
+.pos-logo span{font-style:italic;color:var(--yellow);}
+.header-sep{width:1px;height:24px;background:rgba(255,255,255,0.25);flex-shrink:0;}
+
+/* Stolik selector w headerze */
+.table-strip{display:flex;gap:0.35rem;align-items:center;flex:1;overflow-x:auto;scrollbar-width:none;position:relative;}
+.table-strip::-webkit-scrollbar{display:none;}
+.tbl-btn{
+  flex-shrink:0;padding:0.3rem 0.65rem;border-radius:8px;border:1.5px solid rgba(255,255,255,0.3);
+  background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.9);
+  font-family:'Nunito',sans-serif;font-size:0.75rem;font-weight:800;
+  cursor:pointer;transition:all .15s;white-space:nowrap;position:relative;
+}
+.tbl-btn:hover{background:rgba(255,255,255,0.2);}
+.tbl-btn.active{background:#fff;color:var(--fuchsia);}
+.tbl-btn.has-items::after{
+  content:'';position:absolute;top:3px;right:3px;width:6px;height:6px;
+  border-radius:50%;background:var(--yellow);border:1px solid rgba(255,255,255,0.5);
+}
+.tbl-btn.active.has-items::after{border-color:var(--fuchsia-pale);}
+
+.staff-chip{
+  background:rgba(44,62,106,0.4);border:1px solid rgba(255,255,255,0.2);
+  color:rgba(255,255,255,0.9);font-size:0.7rem;font-weight:800;
+  padding:0.25rem 0.7rem;border-radius:20px;cursor:pointer;
+  white-space:nowrap;flex-shrink:0;position:relative;
+}
+.btn-icon{
+  background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);
+  color:#fff;font-size:0.8rem;font-weight:800;padding:0.3rem 0.6rem;
+  border-radius:8px;cursor:pointer;white-space:nowrap;flex-shrink:0;
+  font-family:'Nunito',sans-serif;transition:background .15s;
+}
+.btn-icon:hover{background:rgba(255,255,255,0.25);}
+
+/* MAIN AREA */
+.pos-main{display:grid;grid-template-columns:1fr 340px;flex:1;overflow:hidden;gap:0;}
+
+/* LEFT — MENU */
+.menu-panel{display:flex;flex-direction:column;overflow:hidden;border-right:1.5px solid var(--border);}
+.cat-tabs{display:flex;gap:0;background:var(--navy);flex-shrink:0;overflow-x:auto;scrollbar-width:none;}
+.cat-tabs::-webkit-scrollbar{display:none;}
+.cat-tab{
+  flex:1;min-width:80px;padding:0.7rem 0.5rem;border:none;border-bottom:3px solid transparent;
+  background:transparent;color:rgba(255,255,255,0.6);
+  font-family:'Nunito',sans-serif;font-size:0.72rem;font-weight:800;
+  letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;
+  transition:all .15s;white-space:nowrap;text-align:center;
+}
+.cat-tab:hover{color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.06);}
+.cat-tab.active{color:#fff;border-bottom-color:var(--fuchsia);}
+
+.products-grid{
+  flex:1;overflow-y:auto;padding:0.8rem;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:0.6rem;
+  align-content:start;
+}
+.prod-btn{
+  background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:0.75rem 0.6rem 0.7rem;cursor:pointer;text-align:center;
+  transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:0.25rem;
+  box-shadow:0 2px 6px rgba(232,56,122,0.06);position:relative;
+  -webkit-tap-highlight-color:transparent;
+}
+.prod-btn:hover{border-color:var(--fuchsia);background:var(--fuchsia-ultra);transform:translateY(-1px);}
+.prod-btn:active{transform:scale(.96);}
+.prod-btn .prod-emoji{font-size:1.6rem;line-height:1;}
+.prod-btn .prod-name{font-size:0.78rem;font-weight:700;color:var(--text);line-height:1.25;}
+.prod-btn .prod-price{font-size:0.82rem;font-weight:900;color:var(--fuchsia);}
+.prod-btn.unavailable{opacity:0.38;pointer-events:none;}
+
+/* Brak produktów */
+.empty-cat{
+  grid-column:1/-1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:3rem 1rem;color:var(--text-light);
+  font-size:0.85rem;font-weight:600;gap:0.5rem;
+}
+.empty-cat span{font-size:2rem;}
+
+/* RIGHT — KOSZYK */
+.cart-panel{display:flex;flex-direction:column;background:var(--white);overflow:hidden;}
+.cart-header{
+  background:var(--navy);padding:0.7rem 1rem;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.cart-title{font-family:'DM Serif Display',serif;font-size:1rem;color:#fff;}
+.cart-table-label{font-size:0.68rem;font-weight:800;color:rgba(255,255,255,0.6);letter-spacing:0.1em;text-transform:uppercase;}
+.cart-items{flex:1;overflow-y:auto;padding:0.5rem 0;}
+
+.cart-empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;color:var(--text-light);font-size:0.82rem;font-weight:600;gap:0.4rem;
+}
+.cart-empty span{font-size:2rem;}
+
+.cart-item{
+  display:flex;align-items:center;gap:0.5rem;padding:0.45rem 0.9rem;
+  border-bottom:1px solid rgba(232,56,122,0.07);
+}
+.ci-name{flex:1;font-size:0.82rem;font-weight:700;color:var(--text);line-height:1.3;}
+.ci-qty{display:flex;align-items:center;gap:0;}
+.ci-btn{
+  width:22px;height:22px;border:1.5px solid var(--border-navy);background:var(--bg);
+  border-radius:5px;font-size:0.85rem;font-weight:800;cursor:pointer;color:var(--text-mid);
+  display:flex;align-items:center;justify-content:center;line-height:1;
+  transition:all .12s;flex-shrink:0;
+}
+.ci-btn:hover{border-color:var(--fuchsia);color:var(--fuchsia);}
+.ci-btn.remove:hover{border-color:var(--red);color:var(--red);}
+.ci-num{min-width:24px;text-align:center;font-size:0.82rem;font-weight:800;color:var(--navy);}
+.ci-price{font-size:0.82rem;font-weight:800;color:var(--navy);white-space:nowrap;min-width:50px;text-align:right;}
+
+/* KOSZYK FOOTER */
+.cart-footer{flex-shrink:0;border-top:2px solid var(--border);padding:0.7rem 0.9rem;}
+
+.cart-total{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin-bottom:0.7rem;
+}
+.ct-label{font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-light);}
+.ct-val{font-size:1.4rem;font-weight:900;color:var(--navy);}
+
+.pay-btns{display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;margin-bottom:0.5rem;}
+.pay-btn{
+  padding:0.6rem 0.3rem;border:2px solid var(--border-navy);border-radius:9px;
+  background:var(--bg);color:var(--text-mid);
+  font-family:'Nunito',sans-serif;font-size:0.75rem;font-weight:800;
+  cursor:pointer;transition:all .15s;text-align:center;letter-spacing:0.02em;
+}
+.pay-btn:hover{border-color:var(--navy);color:var(--navy);}
+.pay-btn.active{border-color:var(--navy);background:var(--navy);color:#fff;}
+
+.btn-print-order{
+  width:100%;padding:0.75rem;background:var(--fuchsia);color:#fff;border:none;
+  border-radius:10px;font-family:'Nunito',sans-serif;font-size:0.9rem;font-weight:800;
+  letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;
+  transition:background .18s,transform .12s;
+  box-shadow:0 4px 16px rgba(232,56,122,0.28);
+}
+.btn-print-order:hover{background:var(--fuchsia-dark);transform:translateY(-1px);}
+.btn-print-order:active{transform:scale(.98);}
+.btn-print-order:disabled{background:var(--text-light);cursor:not-allowed;transform:none;box-shadow:none;}
+
+.btn-clear-cart{
+  width:100%;padding:0.45rem;background:transparent;color:var(--text-light);border:none;
+  font-family:'Nunito',sans-serif;font-size:0.72rem;font-weight:700;cursor:pointer;
+  margin-top:0.3rem;transition:color .15s;
+}
+.btn-clear-cart:hover{color:var(--red);}
+
+.print-status{text-align:center;font-size:0.72rem;font-weight:700;min-height:14px;margin-top:0.3rem;}
+.print-status.ok{color:var(--green);}
+.print-status.err{color:var(--red);}
+
+/* ══ MODAL OVERLAY ══ */
+.modal-bg{
+  display:none;position:fixed;inset:0;background:rgba(28,16,48,0.6);
+  z-index:800;align-items:center;justify-content:center;padding:1rem;
+  backdrop-filter:blur(3px);
+}
+.modal-bg.show{display:flex;}
+.modal{
+  background:var(--white);border-radius:18px;width:100%;max-width:420px;
+  box-shadow:0 20px 60px rgba(28,16,48,0.3);overflow:hidden;
+  animation:popIn .3s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.85) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-top{background:var(--navy);padding:1.1rem 1.3rem;display:flex;align-items:center;justify-content:space-between;}
+.modal-top h3{font-family:'DM Serif Display',serif;font-size:1.2rem;color:#fff;}
+.modal-close{background:rgba(255,255,255,0.15);border:none;color:#fff;width:28px;height:28px;border-radius:7px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.modal-body{padding:1.2rem 1.3rem;}
+
+/* Staff modal */
+.staff-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem;}
+.staff-opt{
+  padding:0.8rem;border:2px solid var(--border-navy);border-radius:10px;
+  background:var(--bg);text-align:center;cursor:pointer;
+  font-family:'Nunito',sans-serif;font-size:0.9rem;font-weight:800;
+  transition:all .15s;
+}
+.staff-opt:hover{border-color:var(--fuchsia);background:var(--fuchsia-pale);color:var(--fuchsia-dark);}
+.staff-opt.active{border-color:var(--fuchsia);background:var(--fuchsia);color:#fff;}
+
+/* Menu editor */
+.menu-editor{max-height:60vh;overflow-y:auto;}
+.me-cat-label{font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-light);margin:0.8rem 0 0.4rem;display:block;}
+.me-item{
+  display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.6rem;
+  border:1.5px solid var(--border);border-radius:9px;margin-bottom:0.35rem;background:var(--bg);
+}
+.me-emoji{font-size:1.1rem;flex-shrink:0;}
+.me-name{flex:1;font-size:0.82rem;font-weight:700;}
+.me-price{font-size:0.82rem;font-weight:800;color:var(--navy);white-space:nowrap;}
+.me-price input{width:60px;padding:0.2rem 0.4rem;border:1.5px solid var(--border-navy);border-radius:6px;font-family:'Nunito',sans-serif;font-size:0.82rem;font-weight:800;color:var(--navy);background:var(--white);text-align:right;}
+.me-avail{width:32px;height:18px;border-radius:9px;border:none;cursor:pointer;position:relative;flex-shrink:0;transition:background .2s;}
+.me-avail.on{background:var(--green);}
+.me-avail.off{background:#ccc;}
+.me-avail::after{content:'';position:absolute;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;}
+.me-avail.on::after{left:16px;}
+.me-avail.off::after{left:2px;}
+.btn-add-product{
+  width:100%;padding:0.55rem;border:2px dashed var(--border-navy);border-radius:9px;
+  background:transparent;color:var(--text-light);font-family:'Nunito',sans-serif;
+  font-size:0.8rem;font-weight:700;cursor:pointer;margin-top:0.4rem;
+  transition:all .15s;
+}
+.btn-add-product:hover{border-color:var(--fuchsia);color:var(--fuchsia);}
+
+/* Add product form */
+.add-prod-form{display:none;border:1.5px solid var(--border);border-radius:10px;padding:0.8rem;margin-top:0.5rem;background:var(--fuchsia-ultra);}
+.add-prod-form.show{display:block;}
+.apf-row{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;}
+.apf-label{font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.09em;color:var(--text-light);display:block;margin-bottom:0.2rem;}
+.apf-input{width:100%;padding:0.45rem 0.6rem;border:1.5px solid var(--border-navy);border-radius:7px;font-family:'Nunito',sans-serif;font-size:0.85rem;font-weight:600;color:var(--text);background:var(--white);}
+.apf-actions{display:flex;gap:0.4rem;margin-top:0.3rem;}
+.apf-save{flex:1;padding:0.5rem;background:var(--fuchsia);color:#fff;border:none;border-radius:8px;font-family:'Nunito',sans-serif;font-size:0.82rem;font-weight:800;cursor:pointer;}
+.apf-cancel{padding:0.5rem 0.8rem;background:transparent;border:1.5px solid var(--border-navy);border-radius:8px;font-family:'Nunito',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;color:var(--text-light);}
+
+.modal-actions{display:flex;gap:0.5rem;margin-top:1rem;}
+.btn-modal-primary{flex:1;padding:0.7rem;background:var(--fuchsia);color:#fff;border:none;border-radius:9px;font-family:'Nunito',sans-serif;font-size:0.88rem;font-weight:800;cursor:pointer;transition:background .15s;}
+.btn-modal-primary:hover{background:var(--fuchsia-dark);}
+.btn-modal-sec{padding:0.7rem 1rem;background:transparent;border:1.5px solid var(--border-navy);border-radius:9px;font-family:'Nunito',sans-serif;font-size:0.88rem;font-weight:700;color:var(--text-mid);cursor:pointer;}
+
+/* Field */
+.field-grp{margin-bottom:0.7rem;}
+.field-grp label{display:block;font-size:0.65rem;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-light);margin-bottom:0.25rem;}
+.field-grp input,.field-grp select{width:100%;padding:0.55rem 0.7rem;border:1.5px solid var(--border-navy);border-radius:8px;font-family:'Nunito',sans-serif;font-size:0.88rem;font-weight:600;color:var(--text);background:var(--bg);outline:none;transition:border-color .18s,box-shadow .18s;}
+.field-grp input:focus,.field-grp select:focus{border-color:var(--fuchsia);box-shadow:0 0 0 3px rgba(232,56,122,0.1);}
+
+/* Zadatek panel */
+.deposit-box{background:var(--fuchsia-ultra);border:1.5px solid var(--border);border-radius:10px;padding:0.8rem;margin-bottom:0.7rem;display:none;}
+.deposit-box.show{display:block;}
+.result-box{background:var(--navy);border-radius:9px;padding:0.7rem 0.9rem;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;}
+.rb-label{font-size:0.65rem;font-weight:800;color:rgba(255,255,255,0.55);text-transform:uppercase;letter-spacing:0.08em;}
+.rb-val{font-size:1rem;font-weight:900;color:var(--yellow);}
+.rb-rest{font-size:0.78rem;color:rgba(255,255,255,0.7);font-weight:700;}
+
+/* Voucher box */
+.voucher-box{background:var(--green-pale);border:1.5px solid rgba(30,122,79,0.2);border-radius:10px;padding:0.8rem;margin-bottom:0.7rem;display:none;}
+.voucher-box.show{display:block;}
+
+/* Historia */
+.history-list{max-height:55vh;overflow-y:auto;}
+.hist-item{border:1.5px solid var(--border);border-radius:10px;padding:0.7rem 0.9rem;margin-bottom:0.5rem;background:var(--bg);}
+.hist-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;}
+.hist-table{font-size:0.72rem;font-weight:800;color:var(--fuchsia);}
+.hist-time{font-size:0.68rem;color:var(--text-light);font-weight:600;}
+.hist-total{font-size:0.88rem;font-weight:900;color:var(--navy);}
+.hist-pay{font-size:0.7rem;font-weight:700;color:var(--text-mid);}
+.hist-products{font-size:0.75rem;color:var(--text-mid);margin-top:0.2rem;line-height:1.5;}
+
+/* Toasty */
+.toast{
+  position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--navy);color:#fff;padding:0.6rem 1.2rem;border-radius:10px;
+  font-size:0.82rem;font-weight:700;z-index:9000;
+  opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;
+  box-shadow:0 8px 24px rgba(28,16,48,0.3);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.success{background:var(--green);}
+.toast.error{background:var(--red);}
+
+/* Scrollbar styling */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* Partial payment banner */
+.partial-pay-banner{
+  background:var(--navy);color:#fff;padding:0.45rem 0.9rem;
+  font-size:0.78rem;font-weight:800;text-align:center;
+  flex-shrink:0;display:none;
+}
+.partial-pay-banner.show{display:block;}
+.partial-pay-banner span{color:var(--yellow);}
+
+
+/* ══ ATTR MODAL ══ */
+.attr-modal-body { padding: 1rem 1.3rem 1.3rem; }
+.attr-section { margin-bottom: 0.9rem; }
+.attr-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-light); display: block; margin-bottom: 0.4rem; }
+.attr-options { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.attr-opt {
+  padding: 0.35rem 0.75rem; border: 1.5px solid var(--border-navy); border-radius: 20px;
+  background: var(--bg); color: var(--text-mid); font-family: 'Nunito', sans-serif;
+  font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all .15s;
+}
+.attr-opt:hover { border-color: var(--fuchsia); color: var(--fuchsia); }
+.attr-opt.selected { border-color: var(--fuchsia); background: var(--fuchsia); color: #fff; }
+.attr-prod-name { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: var(--navy); margin-bottom: 0.8rem; }
+.comment-area {
+  width: 100%; padding: 0.5rem 0.7rem; border: 1.5px solid var(--border-navy); border-radius: 8px;
+  font-family: 'Nunito', sans-serif; font-size: 0.83rem; color: var(--text);
+  background: var(--bg); resize: none; outline: none; transition: border-color .18s;
+  min-height: 56px;
+}
+.comment-area:focus { border-color: var(--fuchsia); }
+.attr-price-preview {
+  text-align: right; font-size: 0.85rem; font-weight: 800; color: var(--fuchsia);
+  margin: 0.3rem 0 0.7rem;
+}
+
+/* Cart item extras */
+.ci-extras { font-size: 0.68rem; color: var(--text-light); font-weight: 600; line-height: 1.4; padding: 0 0 0.1rem; }
+.ci-comment { font-size: 0.68rem; color: var(--fuchsia-dark); font-style: italic; font-weight: 600; }
+
+/* Prod btn — wskaźnik że ma atrybuty */
+.prod-btn.has-attrs::after {
+  content: '⚙';font-size: 0.55rem; position: absolute; top: 4px; right: 5px;
+  color: var(--text-light); opacity: 0.6;
+}
+
+</style>
+</head>
+<body>
+
+<!-- ══ PIN SCREEN ══ -->
+<div id="pin-screen">
+  <div class="pin-card" id="pin-card">
+    <div class="pin-card-top">
+      <div class="pin-eyebrow">Filemon Kocia Kawiarnia</div>
+      <h2>Filemon POS</h2>
+    </div>
+    <div class="pin-body">
+      <div class="pin-dots" id="pin-dots"></div>
+      <div class="pin-numpad">
+        <button class="pin-key" onclick="_pk('1')">1</button>
+        <button class="pin-key" onclick="_pk('2')">2</button>
+        <button class="pin-key" onclick="_pk('3')">3</button>
+        <button class="pin-key" onclick="_pk('4')">4</button>
+        <button class="pin-key" onclick="_pk('5')">5</button>
+        <button class="pin-key" onclick="_pk('6')">6</button>
+        <button class="pin-key" onclick="_pk('7')">7</button>
+        <button class="pin-key" onclick="_pk('8')">8</button>
+        <button class="pin-key" onclick="_pk('9')">9</button>
+        <button class="pin-key key-del" onclick="_pd()">DEL</button>
+        <button class="pin-key key-zero" onclick="_pk('0')">0</button>
+        <button class="pin-key key-ok" onclick="_pe()">OK</button>
+      </div>
+      <div class="pin-status" id="pin-status">Nieprawidłowy PIN</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+
+  <!-- HEADER -->
+  <header class="pos-header">
+    <div class="pos-logo">Filemon <span>POS</span></div>
+    <div class="header-sep"></div>
+    <!-- Stoliki -->
+    <div class="table-strip" id="tableStrip"></div>
+    <div class="header-sep"></div>
+    <button class="staff-chip" id="staffChip" onclick="openStaffModal()">👤 —</button>
+    <button class="btn-icon" onclick="openMenuEditor()">✏️ Menu</button>
+    <button class="btn-icon" onclick="openHistory()">📋 Historia</button>
+    <button class="btn-icon" onclick="doLogout()">🔒</button>
+  </header>
+
+  <!-- MAIN -->
+  <main class="pos-main">
+
+    <!-- MENU -->
+    <div class="menu-panel">
+      <div class="cat-tabs" id="catTabs"></div>
+      <div class="products-grid" id="productsGrid"></div>
+    </div>
+
+    <!-- KOSZYK -->
+    <div class="cart-panel">
+      <div class="cart-header">
+        <div>
+          <div class="cart-table-label" id="cartTableLabel">Stolik</div>
+          <div class="cart-title" id="cartTitle">Koszyk</div>
+        </div>
+      </div>
+      <div class="partial-pay-banner" id="partialBanner"></div>
+      <div class="cart-items" id="cartItems">
+        <div class="cart-empty"><span>🛒</span>Koszyk jest pusty</div>
+      </div>
+      <div class="cart-footer">
+        <div class="cart-total">
+          <span class="ct-label">Do zapłaty</span>
+          <span class="ct-val" id="cartTotal">0,00 zł</span>
+        </div>
+        <div class="pay-btns">
+          <button class="pay-btn" id="pb-cash" onclick="selectPay('cash',this)">💵 Gotówka</button>
+          <button class="pay-btn" id="pb-card" onclick="selectPay('card',this)">💳 Karta</button>
+          <button class="pay-btn" id="pb-deposit" onclick="selectPay('deposit',this)">📋 Zadatek</button>
+          <button class="pay-btn" id="pb-voucher" onclick="selectPay('voucher',this)">🎟️ Voucher</button>
+        </div>
+        <button class="btn-print-order" id="btnPrint" onclick="processOrder()">🖨️ Drukuj paragon i zamknij</button>
+        <button class="btn-clear-cart" onclick="confirmClearCart()">Wyczyść koszyk</button>
+        <div class="print-status" id="printStatus"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL: Wybór pracownika -->
+<div class="modal-bg" id="modalStaff">
+  <div class="modal">
+    <div class="modal-top">
+      <h3>Kto obsługuje?</h3>
+      <button class="modal-close" onclick="closeModal('modalStaff')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="staff-grid" id="staffGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Płatność zadatkiem -->
+<div class="modal-bg" id="modalDeposit">
+  <div class="modal">
+    <div class="modal-top">
+      <h3>Zadatek</h3>
+      <button class="modal-close" onclick="closeModal('modalDeposit')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-grp">
+        <label>Kwota zadatku (zł)</label>
+        <input type="number" id="depAmt" min="1" placeholder="np. 50" oninput="calcDeposit()">
+      </div>
+      <div class="result-box" id="depositResult">
+        <div><div class="rb-label">Zadatek</div><div class="rb-val" id="dep-paid">—</div></div>
+        <div><div class="rb-label">Pozostało</div><div class="rb-rest" id="dep-rest">—</div></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-modal-primary" onclick="confirmDeposit()">Potwierdź</button>
+        <button class="btn-modal-sec" onclick="closeModal('modalDeposit')">Anuluj</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Voucher -->
+<div class="modal-bg" id="modalVoucher">
+  <div class="modal">
+    <div class="modal-top">
+      <h3>Voucher / Licytacja</h3>
+      <button class="modal-close" onclick="closeModal('modalVoucher')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-grp">
+        <label>Numer vouchera / licytacji</label>
+        <input type="text" id="voucherNum" placeholder="nr vouchera lub licytacji">
+      </div>
+      <p style="font-size:0.8rem;color:var(--text-mid);font-weight:600;margin-bottom:0.5rem;">Zamówienie zostanie oznaczone jako opłacone voucherem.</p>
+      <div class="modal-actions">
+        <button class="btn-modal-primary" onclick="confirmVoucher()">Potwierdź</button>
+        <button class="btn-modal-sec" onclick="closeModal('modalVoucher')">Anuluj</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Płatność gotówką -->
+<div class="modal-bg" id="modalCash">
+  <div class="modal">
+    <div class="modal-top">
+      <h3>Płatność gotówką</h3>
+      <button class="modal-close" onclick="closeModal('modalCash')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="cashPartialInfo" style="display:none;background:var(--fuchsia-ultra);border:1.5px solid var(--border);border-radius:10px;padding:0.7rem 0.9rem;margin-bottom:0.8rem;font-size:0.82rem;font-weight:700;color:var(--navy);"></div>
+      <div class="field-grp">
+        <label id="cashInputLabel">Kwota otrzymana od klienta (zł)</label>
+        <input type="number" id="cashAmt" min="1" placeholder="np. 50" oninput="calcCash()" style="font-size:1.1rem;font-weight:800;">
+      </div>
+      <div class="result-box" id="cashResult" style="display:none;">
+        <div><div class="rb-label">Otrzymano</div><div class="rb-val" id="cash-paid">—</div></div>
+        <div><div class="rb-label" id="cash-rest-label">Reszta</div><div class="rb-rest" id="cash-rest">—</div></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-modal-primary" onclick="confirmCash()">Potwierdź</button>
+        <button class="btn-modal-sec" onclick="closeModal('modalCash')">Anuluj</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Menu editor -->
+<div class="modal-bg" id="modalMenu">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-top">
+      <h3>Edycja menu i cen</h3>
+      <button class="modal-close" onclick="closeModal('modalMenu')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="menu-editor" id="menuEditor"></div>
+      <div class="modal-actions">
+        <button class="btn-modal-primary" onclick="saveMenu()">Zapisz zmiany</button>
+        <button class="btn-modal-sec" onclick="closeModal('modalMenu')">Anuluj</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Historia -->
+<div class="modal-bg" id="modalHistory">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-top">
+      <h3>Historia zamówień</h3>
+      <button class="modal-close" onclick="closeModal('modalHistory')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="history-list" id="historyList"></div>
+      <div class="modal-actions">
+        <button class="btn-modal-sec" style="flex:1;" onclick="closeModal('modalHistory')">Zamknij</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Atrybuty produktu -->
+<div class="modal-bg" id="modalAttr">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-top">
+      <h3>Dostosuj</h3>
+      <button class="modal-close" onclick="closeModal('modalAttr')">✕</button>
+    </div>
+    <div class="attr-modal-body">
+      <div class="attr-prod-name" id="attrProdName"></div>
+      <div id="attrSections"></div>
+      <div class="attr-section">
+        <span class="attr-label">Komentarz (nie drukuje się na paragonie)</span>
+        <textarea class="comment-area" id="attrComment" placeholder="np. bez cukru, ekstra gorące..." rows="2"></textarea>
+      </div>
+      <div class="attr-price-preview" id="attrPricePreview"></div>
+      <div class="modal-actions">
+        <button class="btn-modal-primary" onclick="confirmAttr()">Dodaj do koszyka</button>
+        <button class="btn-modal-sec" onclick="closeModal('modalAttr')">Anuluj</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════ PIN ══════════ */
+const _PIN = '1234';
+const _SK  = 'filemon_pos_auth';
+let _entered = '';
+
+(function initPin(){
+  const dots = document.getElementById('pin-dots');
+  for(let i=0;i<_PIN.length;i++){
+    const d=document.createElement('div');
+    d.className='pin-dot';d.id='pd'+i;
+    dots.appendChild(d);
+  }
+  if(sessionStorage.getItem(_SK)==='1') _showContent();
+})();
+
+function _pk(d){if(_entered.length>=_PIN.length)return;_entered+=d;_updateDots();if(_entered.length===_PIN.length)setTimeout(_pe,130);}
+function _pd(){_entered=_entered.slice(0,-1);_updateDots();}
+function _pe(){
+  if(!_entered.length)return;
+  if(_entered===_PIN){
+    sessionStorage.setItem(_SK,'1');
+    document.getElementById('pin-screen').classList.add('fade-out');
+    setTimeout(_showContent,380);
+  } else {
+    _showPinErr();
+  }
+}
+function _updateDots(){
+  for(let i=0;i<_PIN.length;i++){
+    const d=document.getElementById('pd'+i);
+    d.classList.toggle('filled',i<_entered.length);
+    d.classList.remove('error');
+  }
+}
+function _showPinErr(){
+  const card=document.getElementById('pin-card');
+  const st=document.getElementById('pin-status');
+  for(let i=0;i<_PIN.length;i++){document.getElementById('pd'+i).classList.remove('filled');document.getElementById('pd'+i).classList.add('error');}
+  st.classList.add('show');
+  card.classList.add('shake');
+  setTimeout(()=>{card.classList.remove('shake');st.classList.remove('show');_entered='';_updateDots();},700);
+}
+function _showContent(){
+  document.getElementById('pin-screen').style.display='none';
+  document.getElementById('app').classList.add('visible');
+  initApp();
+}
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('pin-screen').style.display==='none')return;
+  if(e.key>='0'&&e.key<='9')_pk(e.key);
+  else if(e.key==='Backspace')_pd();
+  else if(e.key==='Enter')_pe();
+});
+
+/* ══════════ DANE MENU ══════════ */
+const DEFAULT_MENU = {
+  kawy_klasyczne: {
+    label:'Kawy klasyczne', emoji:'☕', items:[
+      {id:'kk1',name:'Espresso',price:9,emoji:'☕',avail:true},
+      {id:'kk2',name:'Espresso doppio',price:11,emoji:'☕',avail:true},
+      {id:'kk3',name:'Americano',price:13,emoji:'☕',avail:true,
+        attrs:[
+          {id:'size',label:'Rozmiar',type:'select',options:[{l:'Mała',v:'',p:0},{l:'Duża',v:'duża',p:2}]},
+          {id:'temp',label:'Temperatura',type:'select',options:[{l:'Na ciepło',v:'',p:0},{l:'Na zimno',v:'mrożone',p:0}]}
+        ]},
+      {id:'kk4',name:'Latte macchiato',price:15,emoji:'☕',avail:true,
+        attrs:[
+          {id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]},
+          {id:'temp',label:'Temperatura',type:'select',options:[{l:'Na ciepło',v:'',p:0},{l:'Na zimno',v:'mrożone',p:0}]}
+        ]},
+      {id:'kk5',name:'Cappuccino',price:13,emoji:'☕',avail:true,
+        attrs:[
+          {id:'size',label:'Rozmiar',type:'select',options:[{l:'Mała',v:'',p:0},{l:'Średnia',v:'średnia',p:2},{l:'Duża',v:'duża',p:4}]},
+          {id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}
+        ]},
+      {id:'kk6',name:'Flat White',price:17,emoji:'☕',avail:true,
+        attrs:[
+          {id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}
+        ]},
+      {id:'kk7',name:'Affogato',price:15,emoji:'☕',avail:true},
+      {id:'kk8',name:'Tradycyjna sypana',price:10,emoji:'☕',avail:true},
+    ]
+  },
+  kawy_smakowe: {
+    label:'Kawy smakowe', emoji:'🍮', items:[
+      {id:'ks1',name:'Karmelek',price:19,emoji:'🍮',avail:true,
+        attrs:[
+          {id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]},
+          {id:'temp',label:'Temperatura',type:'select',options:[{l:'Na ciepło',v:'',p:0},{l:'Na zimno',v:'mrożone',p:0}]}
+        ]},
+      {id:'ks2',name:'Kokosowa',price:19,emoji:'🥥',avail:true,
+        attrs:[
+          {id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]},
+          {id:'temp',label:'Temperatura',type:'select',options:[{l:'Na ciepło',v:'',p:0},{l:'Na zimno',v:'mrożone',p:0}]}
+        ]},
+      {id:'ks3',name:'Pistacjowa',price:21,emoji:'🌿',avail:true,
+        attrs:[
+          {id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]},
+          {id:'temp',label:'Temperatura',type:'select',options:[{l:'Na ciepło',v:'',p:0},{l:'Na zimno',v:'mrożone',p:0}]}
+        ]},
+      {id:'ks4',name:'Kinder Bueno',price:21,emoji:'🍫',avail:true,
+        attrs:[
+          {id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]},
+          {id:'temp',label:'Temperatura',type:'select',options:[{l:'Na ciepło',v:'',p:0},{l:'Na zimno',v:'mrożone',p:0}]}
+        ]},
+      {id:'ks5',name:'Waniliowa z lodami',price:22,emoji:'🍦',avail:true,
+        attrs:[
+          {id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]},
+          {id:'temp',label:'Temperatura',type:'select',options:[{l:'Na ciepło',v:'',p:0},{l:'Na zimno',v:'mrożone',p:0}]}
+        ]},
+      {id:'ks6',name:'Koci miętka z lodami',price:22,emoji:'🍦',avail:true,
+        attrs:[
+          {id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]},
+          {id:'temp',label:'Temperatura',type:'select',options:[{l:'Na ciepło',v:'',p:0},{l:'Na zimno',v:'mrożone',p:0}]}
+        ]},
+      {id:'ks7',name:'Cynamonek z miodem',price:19,emoji:'🍯',avail:true,
+        attrs:[
+          {id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]},
+          {id:'temp',label:'Temperatura',type:'select',options:[{l:'Na ciepło',v:'',p:0},{l:'Na zimno',v:'mrożone',p:0}]}
+        ]},
+      {id:'ks8',name:'Różana',price:21,emoji:'🌹',avail:true,
+        attrs:[
+          {id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]},
+          {id:'temp',label:'Temperatura',type:'select',options:[{l:'Na ciepło',v:'',p:0},{l:'Na zimno',v:'mrożone',p:0}]}
+        ]},
+    ]
+  },
+  matcha: {
+    label:'Matcha Latte', emoji:'🍵', items:[
+      {id:'m1',name:'Klasyczna',price:23,emoji:'🍵',avail:true,attrs:[{id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}]},
+      {id:'m2',name:'Waniliowa',price:23,emoji:'🍵',avail:true,attrs:[{id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}]},
+      {id:'m3',name:'Karmelowa',price:23,emoji:'🍵',avail:true,attrs:[{id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}]},
+      {id:'m4',name:'Kokosowa',price:23,emoji:'🍵',avail:true,attrs:[{id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}]},
+      {id:'m5',name:'Mrożona malinowa',price:23,emoji:'🍵',avail:true,attrs:[{id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}]},
+    ]
+  },
+  herbaty: {
+    label:'Herbaty', emoji:'🫖', items:[
+      {id:'h1',name:'KOT W BUTACH',price:20,emoji:'🫖',avail:true},
+      {id:'h2',name:'ZOSIA',price:20,emoji:'🫖',avail:true},
+      {id:'h3',name:'ADOPCIAK',price:19,emoji:'🫖',avail:true},
+      {id:'h4',name:'RUDZIA',price:20,emoji:'🫖',avail:true},
+      {id:'h5',name:'ADELA',price:19,emoji:'🫖',avail:true},
+      {id:'h6',name:'HUGO&BOSS',price:20,emoji:'🫖',avail:true},
+      {id:'h7',name:'LESNY KOT',price:20,emoji:'🫖',avail:true},
+      {id:'h8',name:'ULUBIENIEC ZUZY',price:24,emoji:'🫖',avail:true},
+      {id:'h9',name:'Czarna klasyczna',price:14,emoji:'🍃',avail:true},
+      {id:'h10',name:'Zielona klasyczna',price:14,emoji:'🍃',avail:true},
+      {id:'h11',name:'Owocowa klasyczna',price:14,emoji:'🍃',avail:true},
+      {id:'h12',name:'Mietowa klasyczna',price:14,emoji:'🍃',avail:true},
+    ]
+  },
+  czekolada: {
+    label:'Goraca czekolada', emoji:'🍫', items:[
+      {id:'cz1',name:'Klasyczna z bita smietana',price:17,emoji:'🍫',avail:true},
+      {id:'cz2',name:'Z malinami i bita smietana',price:20,emoji:'🍫',avail:true},
+      {id:'cz3',name:'Z piankami i posypka',price:20,emoji:'🍫',avail:true},
+    ]
+  },
+  napoje: {
+    label:'Napoje', emoji:'🥤', items:[
+      {id:'n1',name:'Lemoniada cytrynowa',price:15,emoji:'🍋',avail:true},
+      {id:'n2',name:'Lemoniada malinowa',price:15,emoji:'🍓',avail:true},
+      {id:'n3',name:'Lemoniada inny smak',price:15,emoji:'🍹',avail:true},
+    ]
+  },
+  tosty: {
+    label:'Tosty', emoji:'🥪', items:[
+      {id:'t1',name:'Serowy',price:18,emoji:'🧀',avail:true},
+      {id:'t2',name:'Ser-szynka',price:19,emoji:'🥪',avail:true},
+      {id:'t3',name:'Na ostro',price:20,emoji:'🌶️',avail:true},
+      {id:'t4',name:'A la wloskie',price:20,emoji:'🍅',avail:true},
+    ]
+  },
+  karta_letnia: {
+    label:'Karta letnia', emoji:'☀️', items:[
+      // ── Kawy sezonowe ──
+      {id:'kl1',name:'Frappe waniliowe',price:23,emoji:'🧋',avail:true,
+        attrs:[{id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}]},
+      {id:'kl2',name:'Orange Americano',price:19,emoji:'🍊',avail:true},
+      {id:'kl3',name:'Honey Americano',price:18,emoji:'🍯',avail:true},
+      {id:'kl4',name:'Rozany Tonic Espresso',price:21,emoji:'🌹',avail:true},
+      {id:'kl5',name:'Truskawkowa Latte',price:21,emoji:'🍓',avail:true,
+        attrs:[{id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}]},
+      // ── Lemoniady ──
+      {id:'kl6',name:'Lemoniada Lawendowa',price:17,emoji:'💜',avail:true},
+      {id:'kl7',name:'Lemoniada Malina Aloes',price:19,emoji:'🍓',avail:true},
+      {id:'kl8',name:'Lemoniada Owoce Lesne',price:18,emoji:'🫐',avail:true},
+      // ── Matcha sezonowe (25 zł) ──
+      {id:'kl9',name:'Matcha Truskawkowa',price:25,emoji:'🍵',avail:true,
+        attrs:[{id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}]},
+      {id:'kl10',name:'Matcha Na wodzie kokosowej',price:25,emoji:'🍵',avail:true},
+      {id:'kl11',name:'Matcha Mango',price:25,emoji:'🍵',avail:true,
+        attrs:[{id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}]},
+      {id:'kl12',name:'Matcha Lawendowa',price:25,emoji:'🍵',avail:true,
+        attrs:[{id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}]},
+      {id:'kl13',name:'Matcha Orange',price:25,emoji:'🍵',avail:true,
+        attrs:[{id:'milk',label:'Mleko',type:'select',options:[{l:'Krowie',v:'',p:0},{l:'Owsiane',v:'owsiane',p:0},{l:'Bez laktozy',v:'bez laktozy',p:0}]}]},
+      // ── Herbaty sezonowe / mrożone ──
+      {id:'kl14',name:'Malinowa na hibiskusie',price:22,emoji:'🫖',avail:true},
+      {id:'kl15',name:'Mango-Limonka na zielonej herbacie',price:22,emoji:'🫖',avail:true},
+    ]
+  },
+  ciasta: {
+    label:'Domowe ciasta', emoji:'🎂', items:[
+      {id:'c1',name:'Ciasto dnia',price:21,emoji:'🎂',avail:true},
+    ]
+  }
+};
+
+/* ══════════ STAN APLIKACJI ══════════ */
+let _savedMenu = null;
+try{ _savedMenu = JSON.parse(localStorage.getItem('filemon_pos_menu')); }catch(e){}
+// Jeśli zapisane menu nie ma nowych kategorii (matcha/herbaty) — użyj domyślnego
+let menu = (_savedMenu && _savedMenu.matcha && _savedMenu.herbaty && _savedMenu.karta_letnia) ? _savedMenu : DEFAULT_MENU;
+let currentStaff = '';
+let currentTable  = 'wynos';
+let selectedPay   = '';
+let depositAmt    = 0;
+let voucherCode   = '';
+let cashPaidSoFar = 0;   // suma już zapłaconej gotówki (płatność mieszana)
+let partialPaid   = 0;   // łącznie zapłacono wcześniejszymi metodami
+let payLog        = [];  // [{method, amount}] — log płatności dla paragonu
+// Koszyki per stolik
+let carts = {}; // {tableId: [{id,name,price,emoji,qty}]}
+let orderHistory  = JSON.parse(sessionStorage.getItem('filemon_pos_history') || '[]');
+
+const TABLES = [
+  {id:'wynos', label:'Na wynos'},
+  {id:'1', label:'Stolik 1'},
+  {id:'2', label:'Stolik 2'},
+  {id:'3', label:'Stolik 3'},
+  {id:'4', label:'Stolik 4'},
+  {id:'5', label:'Stolik 5'},
+  {id:'6', label:'Stolik 6'},
+  {id:'7', label:'Stolik 7'},
+  {id:'8', label:'Stolik 8'},
+  {id:'9', label:'Stolik 9'},
+  {id:'10', label:'Stolik 10'},
+];
+
+const STAFF = ['Damian','Ola','Grześ'];
+
+/* ══════════ INIT ══════════ */
+function initApp(){
+  buildTableStrip();
+  buildStaffGrid();
+  buildCatTabs();
+  selectTable('wynos');
+  // Auto-wybierz pierwszą kategorię
+  const firstCat = Object.keys(menu)[0];
+  if(firstCat) selectCat(firstCat);
+}
+
+/* ══════════ STOLIKI ══════════ */
+function buildTableStrip(){
+  const strip = document.getElementById('tableStrip');
+  strip.innerHTML = '';
+  TABLES.forEach(t=>{
+    const btn = document.createElement('button');
+    btn.className = 'tbl-btn';
+    btn.id = 'tbl-'+t.id;
+    btn.textContent = t.label;
+    btn.onclick = ()=>selectTable(t.id);
+    strip.appendChild(btn);
+  });
+}
+
+function selectTable(id){
+  currentTable = id;
+  document.querySelectorAll('.tbl-btn').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('tbl-'+id);
+  if(btn) btn.classList.add('active');
+  const tbl = TABLES.find(t=>t.id===id);
+  document.getElementById('cartTableLabel').textContent = tbl ? tbl.label : id;
+  document.getElementById('cartTitle').textContent = id==='wynos' ? 'Na wynos' : 'Stolik '+id;
+  renderCart();
+}
+
+function updateTableBadges(){
+  TABLES.forEach(t=>{
+    const btn = document.getElementById('tbl-'+t.id);
+    if(!btn) return;
+    const cart = carts[t.id] || [];
+    btn.classList.toggle('has-items', cart.length > 0);
+  });
+}
+
+/* ══════════ PRACOWNIK ══════════ */
+function buildStaffGrid(){
+  const grid = document.getElementById('staffGrid');
+  grid.innerHTML = '';
+  STAFF.forEach(s=>{
+    const btn = document.createElement('button');
+    btn.className='staff-opt';
+    btn.textContent = s;
+    btn.onclick=()=>pickStaff(s);
+    grid.appendChild(btn);
+  });
+}
+function openStaffModal(){ openModal('modalStaff'); }
+function pickStaff(name){
+  currentStaff = name;
+  document.getElementById('staffChip').textContent = '👤 '+name;
+  document.querySelectorAll('.staff-opt').forEach(b=>b.classList.toggle('active',b.textContent===name));
+  closeModal('modalStaff');
+}
+
+/* ══════════ KATEGORIE ══════════ */
+let currentCat = '';
+function buildCatTabs(){
+  const tabs = document.getElementById('catTabs');
+  tabs.innerHTML = '';
+  Object.entries(menu).forEach(([key,cat])=>{
+    const btn = document.createElement('button');
+    btn.className='cat-tab';
+    btn.id='cat-'+key;
+    btn.textContent = cat.emoji+' '+cat.label;
+    btn.onclick=()=>selectCat(key);
+    tabs.appendChild(btn);
+  });
+}
+function selectCat(key){
+  currentCat = key;
+  document.querySelectorAll('.cat-tab').forEach(b=>b.classList.remove('active'));
+  const tab = document.getElementById('cat-'+key);
+  if(tab) tab.classList.add('active');
+  renderProducts();
+}
+
+/* ══════════ PRODUKTY ══════════ */
+function renderProducts(){
+  const grid = document.getElementById('productsGrid');
+  const cat = menu[currentCat];
+  if(!cat){ grid.innerHTML=''; return; }
+  const items = cat.items.filter(i=>i.avail);
+  if(!items.length){
+    grid.innerHTML='<div class="empty-cat"><span>🚫</span>Brak dostępnych produktów</div>';
+    return;
+  }
+  grid.innerHTML = items.map(item=>`
+    <button class="prod-btn${item.attrs && item.attrs.length ? ' has-attrs' : ''}" onclick="addToCart('${item.id}')">
+      <span class="prod-emoji">${item.emoji}</span>
+      <span class="prod-name">${item.name}</span>
+      <span class="prod-price">${item.price} zł</span>
+    </button>
+  `).join('');
+}
+
+/* ══════════ KOSZYK ══════════ */
+function getCart(){ return carts[currentTable] || []; }
+function setCart(arr){ carts[currentTable] = arr; updateTableBadges(); }
+
+// Stan edycji atrybutów
+let _attrItem = null;
+let _attrSelections = {}; // {attrId: optionIndex}
+let _attrEditCartKey = null; // null = nowy, else cartItemKey
+
+function addToCart(prodId){
+  let item = null;
+  for(const cat of Object.values(menu)){
+    const found = cat.items.find(i=>i.id===prodId);
+    if(found){item=found;break;}
+  }
+  if(!item) return;
+
+  // Jeśli ma atrybuty — otwórz modal
+  if(item.attrs && item.attrs.length > 0){
+    openAttrModal(item, null);
+    return;
+  }
+
+  // Bez atrybutów — dodaj bezpośrednio (osobna pozycja per klik)
+  const cart = getCart();
+  cart.push({key: Date.now()+'_'+prodId, id:item.id, name:item.name, price:item.price, emoji:item.emoji, qty:1, attrs:{}, comment:''});
+  setCart(cart);
+  renderCart();
+  flashProdBtn(prodId);
+}
+
+function flashProdBtn(prodId){
+  const btn = document.querySelector(`.prod-btn[onclick="addToCart('${prodId}')"]`);
+  if(btn){btn.style.borderColor='var(--fuchsia)';btn.style.background='var(--fuchsia-pale)';setTimeout(()=>{btn.style.borderColor='';btn.style.background='';},200);}
+}
+
+function openAttrModal(item, cartKey){
+  _attrItem = item;
+  _attrSelections = {};
+  _attrEditCartKey = cartKey;
+
+  // Jeśli edycja istniejącej pozycji — załaduj poprzednie wartości
+  if(cartKey !== null){
+    const ci = getCart().find(c=>c.key===cartKey);
+    if(ci){ _attrSelections = {...ci.attrs}; document.getElementById('attrComment').value = ci.comment||''; }
+  } else {
+    document.getElementById('attrComment').value = '';
+    // Domyślnie pierwsze opcje
+    (item.attrs||[]).forEach(a=>{ _attrSelections[a.id]=0; });
+  }
+
+  document.getElementById('attrProdName').textContent = item.emoji + ' ' + item.name;
+  renderAttrSections();
+  updateAttrPrice();
+  openModal('modalAttr');
+}
+
+function renderAttrSections(){
+  const container = document.getElementById('attrSections');
+  const item = _attrItem;
+  container.innerHTML = (item.attrs||[]).map(attr=>`
+    <div class="attr-section">
+      <span class="attr-label">${attr.label}</span>
+      <div class="attr-options" id="attr-opts-${attr.id}">
+        ${attr.options.map((opt,idx)=>`
+          <button type="button" class="attr-opt${(_attrSelections[attr.id]===idx||(_attrSelections[attr.id]===undefined&&idx===0))?' selected':''}"
+            onclick="selectAttrOpt('${attr.id}',${idx})">
+            ${opt.l}${opt.p>0?' (+'+opt.p+' zł)':''}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectAttrOpt(attrId, idx){
+  _attrSelections[attrId] = idx;
+  // Odśwież przyciski tej sekcji
+  const container = document.getElementById('attr-opts-'+attrId);
+  if(container){
+    container.querySelectorAll('.attr-opt').forEach((b,i)=>b.classList.toggle('selected',i===idx));
+  }
+  updateAttrPrice();
+}
+
+function getAttrPrice(){
+  if(!_attrItem) return 0;
+  let extra = 0;
+  (_attrItem.attrs||[]).forEach(attr=>{
+    const idx = _attrSelections[attr.id] !== undefined ? _attrSelections[attr.id] : 0;
+    extra += attr.options[idx]?.p || 0;
+  });
+  return _attrItem.price + extra;
+}
+
+function updateAttrPrice(){
+  const total = getAttrPrice();
+  document.getElementById('attrPricePreview').textContent = 'Cena: ' + total + ' zł';
+}
+
+function getAttrLabels(){
+  if(!_attrItem) return {};
+  const result = {};
+  (_attrItem.attrs||[]).forEach(attr=>{
+    const idx = _attrSelections[attr.id] !== undefined ? _attrSelections[attr.id] : 0;
+    const opt = attr.options[idx];
+    if(opt && opt.v) result[attr.id] = opt.l; // only non-default
+  });
+  return result;
+}
+
+function getAttrSummary(){
+  const labels = getAttrLabels();
+  return Object.values(labels).join(', ');
+}
+
+function confirmAttr(){
+  const item = _attrItem;
+  if(!item) return;
+  const price = getAttrPrice();
+  const attrLabels = getAttrLabels();
+  const comment = document.getElementById('attrComment').value.trim();
+  const cart = getCart();
+
+  if(_attrEditCartKey !== null){
+    // Edycja istniejącej pozycji
+    const ci = cart.find(c=>c.key===_attrEditCartKey);
+    if(ci){ ci.price=price; ci.attrs=attrLabels; ci.comment=comment; }
+  } else {
+    // Nowa pozycja
+    cart.push({
+      key: Date.now()+'_'+item.id,
+      id: item.id,
+      name: item.name,
+      price: price,
+      emoji: item.emoji,
+      qty: 1,
+      attrs: attrLabels,
+      comment: comment
+    });
+  }
+  setCart(cart);
+  renderCart();
+  closeModal('modalAttr');
+  flashProdBtn(item.id);
+}
+
+function changeQty(key, delta){
+  const cart = getCart();
+  const idx = cart.findIndex(c=>c.key===key);
+  if(idx===-1) return;
+  cart[idx].qty += delta;
+  if(cart[idx].qty <= 0) cart.splice(idx,1);
+  setCart(cart);
+  renderCart();
+}
+
+function editCartItem(key){
+  const ci = getCart().find(c=>c.key===key);
+  if(!ci) return;
+  let item = null;
+  for(const cat of Object.values(menu)){
+    const found = cat.items.find(i=>i.id===ci.id);
+    if(found){item=found;break;}
+  }
+  if(!item || !item.attrs || !item.attrs.length) return;
+  openAttrModal(item, key);
+}
+
+function renderCart(){
+  const cart = getCart();
+  const itemsEl = document.getElementById('cartItems');
+  const totalEl = document.getElementById('cartTotal');
+
+  if(!cart.length){
+    itemsEl.innerHTML='<div class="cart-empty"><span>🛒</span>Koszyk jest pusty</div>';
+    totalEl.textContent='0,00 zł';
+    return;
+  }
+
+  itemsEl.innerHTML = cart.map(c=>{
+    const attrStr = c.attrs ? Object.values(c.attrs).join(', ') : '';
+    const hasEditableAttrs = (()=>{
+      for(const cat of Object.values(menu)){
+        const found = cat.items.find(i=>i.id===c.id);
+        if(found && found.attrs && found.attrs.length) return true;
+      }
+      return false;
+    })();
+    return `<div class="cart-item" style="flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:0.5rem;width:100%;">
+        <div class="ci-name" style="cursor:${hasEditableAttrs?'pointer':'default'}" onclick="${hasEditableAttrs?`editCartItem('${c.key}')`:''}">${c.emoji} ${c.name}${hasEditableAttrs?' ✏️':''}</div>
+        <div class="ci-qty">
+          <button class="ci-btn remove" onclick="changeQty('${c.key}',-1)">−</button>
+          <span class="ci-num">${c.qty}</span>
+          <button class="ci-btn" onclick="changeQty('${c.key}',1)">+</button>
+        </div>
+        <div class="ci-price">${c.qty*c.price} zł</div>
+      </div>
+      ${attrStr ? `<div class="ci-extras" style="width:100%;padding-left:0.5rem;">${attrStr}</div>` : ''}
+      ${c.comment ? `<div class="ci-comment" style="width:100%;padding-left:0.5rem;">💬 ${c.comment}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const total = cart.reduce((s,c)=>s+c.qty*c.price,0);
+  totalEl.textContent = total.toFixed(2).replace('.',',') + ' zł';
+}
+
+function getTotal(){
+  return getCart().reduce((s,c)=>s+c.qty*c.price,0);
+}
+
+function confirmClearCart(){
+  if(!getCart().length) return;
+  if(confirm('Wyczyścić cały koszyk?')){ setCart([]); renderCart(); resetAllPay(); }
+}
+
+/* ══════════ PŁATNOŚĆ ══════════ */
+function resetPayBtns(){
+  document.querySelectorAll('.pay-btn').forEach(b=>b.classList.remove('active'));
+  depositAmt=0; voucherCode=''; cashPaidSoFar=0;
+}
+function resetAllPay(){
+  resetPayBtns();
+  selectedPay=''; partialPaid=0; payLog=[];
+  document.getElementById('partialBanner').classList.remove('show');
+}
+function getRemainingToPay(){
+  return Math.max(0, getTotal() - partialPaid);
+}
+function updatePartialBanner(){
+  const banner=document.getElementById('partialBanner');
+  if(partialPaid>0 && partialPaid<getTotal()){
+    banner.classList.add('show');
+    banner.innerHTML='Zapłacono: <span>'+partialPaid+' zł</span> &nbsp;|&nbsp; Pozostało: <span>'+getRemainingToPay()+' zł</span>';
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+function selectPay(type, btn){
+  if(type==='deposit'){ openModal('modalDeposit'); return; }
+  if(type==='voucher'){ openModal('modalVoucher'); return; }
+  if(type==='cash'){
+    // Przygotuj modal gotówki
+    const remaining = getRemainingToPay();
+    document.getElementById('cashAmt').value='';
+    document.getElementById('cashResult').style.display='none';
+    const partialInfo = document.getElementById('cashPartialInfo');
+    if(partialPaid>0){
+      partialInfo.style.display='block';
+      partialInfo.innerHTML='Już zapłacono: <strong>'+partialPaid+' zł</strong>. Pozostało do zapłaty: <strong>'+remaining+' zł</strong>';
+      document.getElementById('cashInputLabel').textContent='Kwota gotówki (zł)';
+    } else {
+      partialInfo.style.display='none';
+      document.getElementById('cashInputLabel').textContent='Kwota otrzymana od klienta (zł)';
+    }
+    openModal('modalCash');
+    setTimeout(()=>document.getElementById('cashAmt').focus(),200);
+    return;
+  }
+  // Karta / inne — jeśli jest reszta po gotówce to domknij rachunek
+  selectedPay = type;
+  resetPayBtns();
+  btn.classList.add('active');
+  // Jeśli to dopłata kartą po częściowej gotówce — od razu zamknij
+  if(partialPaid>0 && partialPaid<getTotal()){
+    payLog.push({method:'card', amount: getRemainingToPay()});
+    partialPaid = getTotal(); // całość zapłacona
+    updatePartialBanner();
+    processOrder();
+  }
+}
+
+function calcCash(){
+  const remaining = getRemainingToPay();
+  const paid = parseFloat(document.getElementById('cashAmt').value)||0;
+  const resultBox = document.getElementById('cashResult');
+  if(!paid){ resultBox.style.display='none'; return; }
+  resultBox.style.display='flex';
+  document.getElementById('cash-paid').textContent = paid+' zł';
+  if(paid >= remaining){
+    const change = paid - remaining;
+    document.getElementById('cash-rest-label').textContent = 'Reszta do wydania';
+    document.getElementById('cash-rest').textContent = change.toFixed(2)+' zł';
+    document.getElementById('cash-rest').style.color='#F5C842';
+  } else {
+    const left = remaining - paid;
+    document.getElementById('cash-rest-label').textContent = 'Brakuje';
+    document.getElementById('cash-rest').textContent = left.toFixed(2)+' zł';
+    document.getElementById('cash-rest').style.color='#ff8fa3';
+  }
+}
+
+function confirmCash(){
+  const remaining = getRemainingToPay();
+  const paid = parseFloat(document.getElementById('cashAmt').value)||0;
+  if(!paid){ showToast('Podaj kwotę gotówki','error'); return; }
+
+  if(paid >= remaining){
+    // Zapłacone w całości gotówką
+    const change = paid - remaining;
+    payLog.push({method:'cash', amount: remaining});
+    partialPaid = getTotal();
+    cashPaidSoFar += paid;
+    selectedPay = 'cash';
+    closeModal('modalCash');
+    if(change>0){
+      showToast('Reszta do wydania: '+change.toFixed(2)+' zł 💵','success');
+    }
+    updatePartialBanner();
+    processOrder();
+  } else {
+    // Częściowa płatność — zamknij modal, pokaż co pozostało
+    payLog.push({method:'cash', amount: paid});
+    partialPaid += paid;
+    cashPaidSoFar += paid;
+    closeModal('modalCash');
+    resetPayBtns();
+    updatePartialBanner();
+    showToast('Gotówka: '+paid+' zł. Wybierz pozostałą formę płatności.','');
+  }
+}
+
+function calcDeposit(){
+  const total = getTotal();
+  const dep = parseFloat(document.getElementById('depAmt').value)||0;
+  const rest = Math.max(0, total-dep);
+  document.getElementById('dep-paid').textContent = dep ? dep+' zł' : '—';
+  document.getElementById('dep-rest').textContent = dep ? 'Do dopłaty: '+rest+' zł' : '—';
+}
+
+function confirmDeposit(){
+  const dep = parseFloat(document.getElementById('depAmt').value)||0;
+  if(!dep){ showToast('Podaj kwotę zadatku','error'); return; }
+  depositAmt = dep;
+  selectedPay = 'deposit';
+  payLog=[{method:'deposit',amount:dep}];
+  resetPayBtns();
+  document.getElementById('pb-deposit').classList.add('active');
+  closeModal('modalDeposit');
+}
+
+function confirmVoucher(){
+  const num = document.getElementById('voucherNum').value.trim();
+  if(!num){ showToast('Podaj numer vouchera','error'); return; }
+  voucherCode = num;
+  selectedPay = 'voucher';
+  payLog=[{method:'voucher',amount:getTotal(),code:num}];
+  resetPayBtns();
+  document.getElementById('pb-voucher').classList.add('active');
+  closeModal('modalVoucher');
+}
+
+/* ══════════ DRUKOWANIE I ZAMKNIĘCIE ══════════ */
+async function processOrder(){
+  const cart = getCart();
+  if(!cart.length){ showToast('Koszyk jest pusty','error'); return; }
+  // Sprawdź czy rachunek jest w pełni opłacony
+  const fullyPaid = partialPaid >= getTotal() || selectedPay;
+  if(!fullyPaid && payLog.length===0){ showToast('Wybierz formę płatności','error'); return; }
+  if(!currentStaff){ showToast('Wybierz pracownika (👤 w prawym rogu)','error'); return; }
+
+  const btn = document.getElementById('btnPrint');
+  btn.disabled=true; btn.textContent='Drukowanie...';
+
+  const total = getTotal();
+  const now = new Date();
+  const order = {
+    id: Date.now(),
+    table: currentTable,
+    tableLabel: TABLES.find(t=>t.id===currentTable)?.label || currentTable,
+    items: [...cart],
+    total,
+    pay: selectedPay,
+    payLog: [...payLog],
+    depositAmt,
+    voucherCode,
+    cashPaidTotal: cashPaidSoFar,
+    staff: currentStaff,
+    time: now.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'}),
+    date: now.toLocaleDateString('pl-PL'),
+  };
+
+  // Dodaj do historii
+  orderHistory.unshift(order);
+  if(orderHistory.length>50) orderHistory.pop();
+  sessionStorage.setItem('filemon_pos_history', JSON.stringify(orderHistory));
+
+  // Drukowanie
+  const st = document.getElementById('printStatus');
+  try{
+    // Najpierw bonowka kuchenna (z atrybutami i komentarzami)
+    const hasComments = order.items.some(i=>i.comment || (i.attrs && Object.keys(i.attrs).length));
+    if(hasComments){
+      const slip = buildKitchenSlip(order);
+      await sendToPrinter(new Uint8Array(slip));
+    }
+    // Potem paragon (bez atrybutów i komentarzy)
+    const receipt = buildPOSReceipt(order);
+    await sendToPrinter(new Uint8Array(receipt));
+    st.className='print-status ok'; st.textContent='✓ Wydrukowano!';
+  }catch(e){
+    st.className='print-status err'; st.textContent='✗ Błąd drukarki: '+e.message;
+  }
+
+  // Wyczyść koszyk
+  setCart([]);
+  renderCart();
+  resetAllPay();
+
+  btn.disabled=false; btn.textContent='🖨️ Drukuj paragon i zamknij';
+  showToast('Zamówienie zrealizowane ✓','success');
+}
+
+/* ══════════ MENU EDITOR ══════════ */
+function openMenuEditor(){
+  const editor = document.getElementById('menuEditor');
+  editor.innerHTML = '';
+  Object.entries(menu).forEach(([catKey, cat])=>{
+    const label = document.createElement('span');
+    label.className='me-cat-label';
+    label.textContent=cat.emoji+' '+cat.label;
+    editor.appendChild(label);
+
+    cat.items.forEach(item=>{
+      const div=document.createElement('div');
+      div.className='me-item';
+      div.innerHTML=`
+        <span class="me-emoji">${item.emoji}</span>
+        <span class="me-name">${item.name}</span>
+        <span class="me-price"><input type="number" value="${item.price}" min="1" id="price-${item.id}" style="width:64px;"></span>
+        <button class="me-avail ${item.avail?'on':'off'}" id="avail-${item.id}" onclick="toggleAvail('${item.id}',this)" title="${item.avail?'Dostępny':'Niedostępny'}"></button>
+      `;
+      editor.appendChild(div);
+    });
+
+    // Dodaj produkt
+    const addBtn = document.createElement('button');
+    addBtn.className='btn-add-product';
+    addBtn.textContent='+ Dodaj produkt do kategorii '+cat.label;
+    addBtn.onclick=()=>showAddForm(catKey, addBtn);
+    editor.appendChild(addBtn);
+
+    const form=document.createElement('div');
+    form.className='add-prod-form';
+    form.id='addform-'+catKey;
+    form.innerHTML=`
+      <div class="apf-row">
+        <div><label class="apf-label">Nazwa</label><input class="apf-input" id="apf-name-${catKey}" placeholder="np. Kawa z syropem"></div>
+        <div><label class="apf-label">Cena (zł)</label><input class="apf-input" type="number" id="apf-price-${catKey}" placeholder="0" min="1"></div>
+      </div>
+      <div class="apf-row">
+        <div><label class="apf-label">Emoji</label><input class="apf-input" id="apf-emoji-${catKey}" placeholder="☕" maxlength="2" value="☕"></div>
+      </div>
+      <div class="apf-actions">
+        <button class="apf-save" onclick="addProduct('${catKey}')">Dodaj</button>
+        <button class="apf-cancel" onclick="hideAddForm('${catKey}')">Anuluj</button>
+      </div>
+    `;
+    editor.appendChild(form);
+  });
+  openModal('modalMenu');
+}
+
+function showAddForm(catKey, btn){ document.getElementById('addform-'+catKey).classList.add('show'); }
+function hideAddForm(catKey){ document.getElementById('addform-'+catKey).classList.remove('show'); }
+
+function addProduct(catKey){
+  const name=document.getElementById('apf-name-'+catKey).value.trim();
+  const price=parseInt(document.getElementById('apf-price-'+catKey).value)||0;
+  const emoji=document.getElementById('apf-emoji-'+catKey).value.trim()||'☕';
+  if(!name){ showToast('Podaj nazwę produktu','error'); return; }
+  if(!price){ showToast('Podaj cenę produktu','error'); return; }
+  const id='custom_'+Date.now();
+  menu[catKey].items.push({id,name,price,emoji,avail:true});
+  openMenuEditor(); // odśwież
+}
+
+function toggleAvail(id, btn){
+  for(const cat of Object.values(menu)){
+    const item=cat.items.find(i=>i.id===id);
+    if(item){ item.avail=!item.avail; btn.className='me-avail '+(item.avail?'on':'off'); break; }
+  }
+}
+
+function saveMenu(){
+  // Zbierz ceny z inputów
+  Object.values(menu).forEach(cat=>{
+    cat.items.forEach(item=>{
+      const inp=document.getElementById('price-'+item.id);
+      if(inp){ const p=parseInt(inp.value); if(p>0) item.price=p; }
+    });
+  });
+  localStorage.setItem('filemon_pos_menu', JSON.stringify(menu));
+  buildCatTabs();
+  renderProducts();
+  closeModal('modalMenu');
+  showToast('Menu zapisane ✓','success');
+}
+
+/* ══════════ HISTORIA ══════════ */
+function openHistory(){
+  const list=document.getElementById('historyList');
+  if(!orderHistory.length){
+    list.innerHTML='<div style="text-align:center;color:var(--text-light);font-size:0.85rem;padding:2rem;">Brak zamówień w tej sesji</div>';
+  } else {
+    list.innerHTML=orderHistory.map(o=>{
+      let payLabel='';
+      if(o.payLog && o.payLog.length>1){
+        payLabel=o.payLog.map(p=>{
+          const m={'cash':'Gotówka','card':'Karta','deposit':'Zadatek','voucher':'Voucher'}[p.method]||p.method;
+          return m+' '+p.amount+' zł';
+        }).join(' + ');
+      } else {
+        payLabel={'cash':'Gotówka','card':'Karta','deposit':'Zadatek '+o.depositAmt+' zł','voucher':'Voucher #'+o.voucherCode}[o.pay]||o.pay;
+      }
+      const items=o.items.map(i=>{
+        const attrPart = i.attrs ? Object.values(i.attrs).join(', ') : '';
+        return (i.qty>1?i.qty+'× ':'')+i.name+(attrPart?' ['+attrPart+']':'')+' ('+i.qty*i.price+' zł)';
+      }).join(', ');
+      return `<div class="hist-item">
+        <div class="hist-head">
+          <span class="hist-table">${o.tableLabel}</span>
+          <span class="hist-time">${o.date} ${o.time} · ${o.staff}</span>
+        </div>
+        <div class="hist-products">${items}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:0.4rem;">
+          <span class="hist-pay">${payLabel}</span>
+          <span class="hist-total">${o.total} zł</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  openModal('modalHistory');
+}
+
+/* ══════════ MODAL ══════════ */
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-bg').forEach(bg=>{
+  bg.addEventListener('click',e=>{if(e.target===bg)bg.classList.remove('show');});
+});
+
+/* ══════════ TOAST ══════════ */
+let _toastTimer;
+function showToast(msg, type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast '+(type||'');
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+/* ══════════ LOGOUT ══════════ */
+function doLogout(){
+  if(Object.values(carts).some(c=>c.length>0)){
+    if(!confirm('Masz otwarte stoliki. Wylogować?')) return;
+  }
+  sessionStorage.removeItem(_SK);
+  location.reload();
+}
+
+/* ══════════ ESC/POS HELPERS ══════════ */
+const W=48;
+const ESC=0x1B,GS=0x1D;
+const INIT=[ESC,0x40];
+const BOLD_ON=[ESC,0x45,0x01];
+const BOLD_OFF=[ESC,0x45,0x00];
+const ALIGN_C=[ESC,0x61,0x01];
+const ALIGN_L=[ESC,0x61,0x00];
+const SIZE_BIG=[GS,0x21,0x11];
+const SIZE_NORM=[GS,0x21,0x00];
+const CUT=[GS,0x56,0x42,0x05];
+const LF=[0x0A];
+
+function encPC437(str){
+  const approx={'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z','Ą':'A','Ć':'C','Ę':'E','Ł':'L','Ń':'N','Ó':'O','Ś':'S','Ź':'Z','Ż':'Z'};
+  const bytes=[];
+  for(const ch of str){
+    if(ch.charCodeAt(0)<128){bytes.push(ch.charCodeAt(0));}
+    else if(approx[ch]){bytes.push(approx[ch].charCodeAt(0));}
+    else{bytes.push(0x3F);}
+  }
+  return bytes;
+}
+function line(text){return[...encPC437(text.substring(0,W)),...LF];}
+function hr(ch='-'){return line(ch.repeat(W));}
+function lineKV(key,val){
+  const k=key.substring(0,W-val.length-1);
+  const pad=W-k.length-val.length;
+  return line(k+' '.repeat(Math.max(0,pad))+val);
+}
+function blank(){return[...LF];}
+
+function buildKitchenSlip(o){
+  // Bonowka kuchenna — drukuje atrybuty i komentarze, bez cen
+  const bytes=[];
+  const push=arr=>arr.forEach(b=>bytes.push(b));
+  push(INIT);
+  push(ALIGN_C);
+  push(BOLD_ON);push(SIZE_BIG);push(line('ZAMOWIENIE'));push(SIZE_NORM);push(BOLD_OFF);
+  push(lineKV('Stolik:',o.tableLabel));
+  push(lineKV('Godz.:',o.time));
+  push(lineKV('Kasjer:',o.staff));
+  push(hr('='));
+  push(ALIGN_L);
+  o.items.forEach(item=>{
+    const prefix=(item.qty>1?item.qty+'x ':'')+item.name;
+    push(BOLD_ON);push(line(prefix));push(BOLD_OFF);
+    if(item.attrs){
+      const attrStr = Object.values(item.attrs).join(', ');
+      if(attrStr) push(line('  >> '+attrStr));
+    }
+    if(item.comment) push(line('  ! '+item.comment));
+    push(blank());
+  });
+  push(hr());
+  push(blank());push(blank());push(CUT);
+  return bytes;
+}
+
+function buildPOSReceipt(o){
+  const bytes=[];
+  const push=arr=>arr.forEach(b=>bytes.push(b));
+
+  push(INIT);
+  push([0x1B,0x37,0x07,0x07,0x00]);
+  push([ESC,0x33,0x00]);
+
+  push(ALIGN_C);
+  push(SIZE_BIG);push(line('FILEMON'));push(SIZE_NORM);
+  push(BOLD_ON);push(line('Kocia Kawiarnia'));push(BOLD_OFF);
+  push(line('ul. Hallera 21a, Starogard Gd.'));
+  push(line('tel. 576-357-522'));
+  push(hr('='));
+
+  push(ALIGN_L);
+  push(BOLD_ON);push(line('PARAGON'));push(BOLD_OFF);
+  push(lineKV('Data:',o.date));
+  push(lineKV('Godz.:',o.time));
+  push(lineKV('Kasjer:',o.staff));
+  push(lineKV('Stolik:',o.tableLabel));
+  push(hr());
+
+  push(BOLD_ON);push(line('ZAMOWIENIE:'));push(BOLD_OFF);
+  o.items.forEach(item=>{
+    const priceStr=(item.qty*item.price)+' zl';
+    const prefix=(item.qty>1?item.qty+'x ':'')+item.name;
+    push(lineKV(prefix.substring(0,W-priceStr.length-1),priceStr));
+    if(item.qty>1){
+      push(line('  ('+item.qty+' x '+item.price+' zl)'));
+    }
+    // Komentarze i atrybuty NIE drukują się na paragonie
+  });
+
+  push(hr());
+  push(BOLD_ON);
+  push(lineKV('RAZEM:',o.total+' zl'));
+  push(BOLD_OFF);
+
+  push(hr());
+  push(BOLD_ON);push(line('PLATNOSC:'));push(BOLD_OFF);
+  const plog = o.payLog && o.payLog.length ? o.payLog : [{method:o.pay, amount:o.total}];
+  plog.forEach(p=>{
+    if(p.method==='cash') push(lineKV('Gotowka:',p.amount+' zl'));
+    else if(p.method==='card') push(lineKV('Karta:',p.amount+' zl'));
+    else if(p.method==='deposit'){push(lineKV('Zadatek:',p.amount+' zl'));push(line('(do odbioru przy realizacji)'));}
+    else if(p.method==='voucher'){push(lineKV('Voucher #'+(p.code||o.voucherCode)+':',p.amount+' zl'));}
+  });
+  if(o.cashPaidTotal && o.cashPaidTotal > o.total){
+    push(lineKV('Wydano reszte:',(o.cashPaidTotal-o.total).toFixed(2)+' zl'));
+  }
+
+  push(hr('='));
+  push(ALIGN_C);
+  push(BOLD_ON);push(line('Dziekujemy!'));push(BOLD_OFF);
+  push(line('Zapraszamy ponownie'));
+  push(blank());push(blank());
+  push(CUT);
+
+  return bytes;
+}
+
+async function sendToPrinter(data){
+  const PRINTER_IP='192.168.1.10';
+  const PRINTER_PORT=9100;
+  try{
+    await fetch('http://'+PRINTER_IP+':'+PRINTER_PORT+'/',{method:'POST',body:data,mode:'no-cors'});
+    return;
+  }catch(e1){
+    try{
+      const res=await fetch('http://127.0.0.1:8080/print',{
+        method:'POST',
+        headers:{'Content-Type':'application/octet-stream','X-Printer-IP':PRINTER_IP,'X-Printer-Port':String(PRINTER_PORT)},
+        body:data
+      });
+      if(!res.ok)throw new Error('bridge HTTP '+res.status);
+    }catch(e2){
+      throw new Error('Brak polaczenia z drukarką '+PRINTER_IP+':'+PRINTER_PORT);
+    }
+  }
+}
+
+/* ══════════ PWA ══════════ */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw-pos.js');
+  });
+}
+</script>
+</body>
+</html>
