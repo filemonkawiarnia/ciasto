@@ -1,0 +1,16 @@
+{
+  "name": "Filemon — Zamówienia Ciast",
+  "short_name": "Filemon",
+  "description": "Panel przyjmowania zamówień — Filemon Kocia Kawiarnia",
+  "start_url": "./ciasto.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FFF5FA",
+  "theme_color": "#E8387A",
+  "lang": "pl",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
